@@ -17,10 +17,10 @@ dim(IASData)
 head(IASData)
 summary(IASData)
 names(IASData)
-cor(IASData[,c(1:14)])
+cor(IASData[,c(1:13)])
 
 # make heatmap
-cormat <- round(cor(IASData[,c(1:14)]),2)
+cormat <- round(cor(IASData[,c(1:13)]),2)
 
 melted_cormat <- melt(cormat)
 head(melted_cormat)
@@ -32,7 +32,7 @@ ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) +
 
 ```{r}
 #factor estimation
-EigenDecomp <- eigen(cov(IASData[,c(1:14)]))
+EigenDecomp <- eigen(cov(IASData[,c(1:13)]))
 EigenValues <- EigenDecomp$values
 plot(EigenValues,main="Scree Plot IAS",type="l",xlab="Number of Factors",ylab="Eigen Values")
 ```
@@ -40,7 +40,7 @@ plot(EigenValues,main="Scree Plot IAS",type="l",xlab="Number of Factors",ylab="E
 ```{r}
 # 2: Estimate the factors using maximum likelihood
 k<-2
-EFA.kfactors <- factanal(IASData[,1:14], factors=k,
+EFA.kfactors <- factanal(IASData[,1:13], factors=k,
 rotation="none")
 EFA.kfactors$converged
 
@@ -61,11 +61,64 @@ pvals[k] <- Estimation$PVAL
 }
 # Evaluate pvals and convergence for NrFactors:
 cbind(NrFactors,pvals)
+
+# choose four factors and test convergence
+EFA.kfactors <- factanal(IASData[,1:13], factors=2,rotation="varimax")
+EFA.kfactors$converged
+EFA.kfactors
 ```
 
 ```{r}
+print(EFA.kfactors, digits=2, cutoff=.2)
+```
+
+```{r}
+
 # 1: Compute the Cronbach’s alpha for the TimeEscalation factor
-CalphaTimeEscalation <- alpha(IASData[,c(1,2,3,5,10,11,13)])
+CalphaTimeEscalation <- psych::alpha(IASData[,c(1,2,3,5,10,11,13)])
 CalphaTimeEscalation
+```
+```{r}
+
+CalphaTimeEscalation <- psych::alpha(IASData[,c(4, 6, 7, 8, 9, 12)])
+CalphaTimeEscalation
+```
+```{r}
+# Create an artificial data.frame for illustration:
+Data <- data.frame(IASData)
+# Identify the number of observations in Data:
+N <- dim(Data)[1]
+# Create a random index vector:
+shuffle.index <- sample(1:N,size=N/2)
+# Shuffle the data:
+IASData.Partition1 <- Data[shuffle.index,]
+IASData.Partition2 <- Data[-shuffle.index,]
+
+
+# choose four factors and test convergence
+EFA.kfactors <- factanal(IASData.Partition1[,1:13], factors=2,rotation="varimax")
+EFA.kfactors$converged
+EFA.kfactors
+
+# choose four factors and test convergence
+EFA.kfactors <- factanal(IASData.Partition2[,1:13], factors=2,rotation="varimax")
+EFA.kfactors$converged
+EFA.kfactors
+```
+
+```{r}
+# 1: Compute factor scores
+EFA.2factors <- factanal(IASData[,1:13], factors=2,
+rotation="varimax", scores="regression")
+FactorScores <- data.frame(EFA.2factors$scores)
+
+IASData$TimeEscalation <- FactorScores$Factor1
+IASData$NegativeEffects <- FactorScores$Factor2
+
+plot(IASData$TimeEscalation,IASData$NegativeEffects)
+boxplot(IASData$TimeEscalation ~ IASData$gender)
+t.test(IASData$TimeEscalation ~ IASData$gender)
+boxplot(IASData$NegativeEffects~IASData$gender)
+t.test(IASData$NegativeEffects ~ IASData$gender)
 ```
 
