@@ -1,0 +1,71 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(psych)
+library(reshape2)
+library(ggplot2)
+
+IASData <- read.csv(file="IASDataset.csv")
+```
+
+
+```{r}
+dim(IASData)
+head(IASData)
+summary(IASData)
+names(IASData)
+cor(IASData[,c(1:14)])
+
+# make heatmap
+cormat <- round(cor(IASData[,c(1:14)]),2)
+
+melted_cormat <- melt(cormat)
+head(melted_cormat)
+
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()
+
+```
+
+```{r}
+#factor estimation
+EigenDecomp <- eigen(cov(IASData[,c(1:14)]))
+EigenValues <- EigenDecomp$values
+plot(EigenValues,main="Scree Plot IAS",type="l",xlab="Number of Factors",ylab="Eigen Values")
+```
+
+```{r}
+# 2: Estimate the factors using maximum likelihood
+k<-2
+EFA.kfactors <- factanal(IASData[,1:14], factors=k,
+rotation="none")
+EFA.kfactors$converged
+
+# variables with a uniqueness > 0.8 are dropped from the analysis.
+EFA.kfactors 
+```
+
+```{r}
+# Define number of factors sequence:
+NrFactors <- 1:5
+# Reserve space for p-values in memory, by creating an empty
+# vector with Non-Availables (NA) of the same length as NrFactors:
+pvals <- rep(NA,times=length(NrFactors))
+for(k in NrFactors){
+# Estimate k-factor model:
+Estimation <- factanal(IASData[,1:13],factors=k,rotation="none")
+pvals[k] <- Estimation$PVAL
+}
+# Evaluate pvals and convergence for NrFactors:
+cbind(NrFactors,pvals)
+```
+
+```{r}
+# 1: Compute the Cronbach’s alpha for the TimeEscalation factor
+CalphaTimeEscalation <- alpha(IASData[,c(1,2,3,5,10,11,13)])
+CalphaTimeEscalation
+```
+
