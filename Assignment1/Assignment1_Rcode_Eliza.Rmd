@@ -1,0 +1,185 @@
+---
+title: "Assignment 1"
+output: html_notebook
+---
+
+```{r}
+df <- read.csv(file="Assignment1_Data.csv")
+```
+
+### Question 1
+For each of the 17 variables in the data file, indicate of what type they are and
+explain why. Choose from nominal scale, ordinal scale, interval scale or ratio scale.
+```{r}
+data_types <- function(frame) {
+  res <- lapply(frame, class)
+  res_frame <- data.frame(unlist(res))
+  barplot(table(res_frame), main="Data Types", col="steelblue", ylab="Number of Features")
+}
+data_types(df)
+```
+### Question 2
+What is the percentage of companies that have introduced new or significantly
+improved products/goods?
+```{r}
+ProdInn1 <- df[(df$ProductInnovation==1),]
+ProdInn0 <- df[(df$ProductInnovation==0),]
+
+perc <- dim(ProdInn1)[1]/dim(df)[1]*100
+cat(round(perc,2), "%")
+```
+
+### Question 3
+Compare the distribution of R&D expenditures for companies that have introduced
+new or significantly improved products/goods, versus companies that have not.
+Use a plot and a statistical test. Explain which plot and test you use, and why.
+What do you conclude?
+```{r}
+# heavily skewed to the right
+summary(ProdInn1$RDExp)
+summary(ProdInn0$RDExp)
+```
+
+```{r}
+# Take the log of the data so the distribution can be visualized better
+
+hist(log(ProdInn1$RDExp), breaks=100, col='blue')
+hist(log(ProdInn0$RDExp), breaks=100, col='red')
+```
+```{r}
+
+# The RDExp of companies who did innovate has a different distribution from that of those who did not innovate
+ks.test(log(ProdInn1$RDExp), log(ProdInn0$RDExp))
+```
+
+
+### Question 4
+Is manufacturing innovation (i.e., new or significantly improved manufacturing
+process and/or procedures for service delivery) more common for companies that
+have introduced new or significantly improved products/goods, versus companies
+that have not? Support your answer.
+
+```{r}
+# Manufacturing innovation is not more common for companies that innovated their products/goods, versus companies that did not
+cat(dim(ProdInn1[ProdInn1$ManufacturingInnovation==1,])[1]/dim(ProdInn1)[1]*100,"% product=1, manuf=1\n")
+cat(dim(ProdInn1[ProdInn1$ManufacturingInnovation==0,])[1]/dim(ProdInn1)[1]*100,"% product=1, manuf=0\n")
+
+cat(dim(ProdInn0[ProdInn1$ManufacturingInnovation==1,])[1]/dim(ProdInn0)[1]*100,"% product=0, manuf=1\n")
+cat(dim(ProdInn0[ProdInn1$ManufacturingInnovation==0,])[1]/dim(ProdInn0)[1]*100,"% product=0, manuf=0\n")
+```
+
+### Question 5
+Which variable(s) contain missing values?
+```{r}
+# NrEmployees has missing values
+colSums(is.na(df))
+```
+
+### Question 6
+What is the percentage of missingness?
+```{r}
+cat(mean(is.na(df))*100,"% of all data points are missing.\n")
+cat(mean(is.na(df$NrEmployees))*100, "% of the NrEmployees column is missing.")
+```
+
+### Question 7
+Is the missingness related to any of the other variables in the data set? Explain
+which tests you use and why.
+```{r}
+# Missingness is not related to any of the other variables in the dataset.
+# Used 2-sample t-test to compare the mean of each variable of complete cases with that of incomplete cases
+
+missing <- df[!complete.cases(df),]
+complete <- df[complete.cases(df),]
+
+for (i in colnames(df)){
+  if(i!="NrEmployees"){
+    print(i)
+    print(t.test(missing[[i]],complete[[i]])$p.value)
+  }
+}
+```
+
+### Question 8
+What do you conclude about the type of missingness from your tests of the previous
+question?
+
+I conclude that the data is missing at random and can be omitted from the dataset.
+
+### Question 9
+Compute the Mahalanobis distances of the companies based on the information
+variables. Graphically present the Mahalanobis distances.
+
+### Question 10
+Can we use the rule-of-thumb that observations of which the Mahalanobis Distance
+divided q is larger 3 are outliers? Here, q is the number of variables used in the
+calculation of the Mahalanobis distance. Explain why or why not.
+
+### Question 11
+Which companies, if any, are outliers? Describe the decision process by which you
+have or have not identified outliers. If you have identified outliers, perform the
+rest of the assignment after dropping the outliers from the analysis.
+
+### Question 12
+Is a factor analysis appropriate for the questions on the information sources of
+innovations? Explain how you have checked whether factor analysis is appropriate.
+
+### Question 13
+Make a scree plot. How many factors does the scree plot suggest?
+
+### Question 14
+For what purpose is a rotation of the factors in an exploratory factor analysis used?
+Should we perform a rotation in this setting? Why or why not?
+
+### Question 15
+For what purpose is a rotation of the factors in an exploratory factor analysis used?
+Should we perform a rotation in this setting? Why or why not?
+
+### Question 16
+Check whether all the variables should be retained in the factor analysis.
+(a) Which criteria do you use? Which of the variables, if any, should be dropped?
+(b) If one or more of the variables should be dropped, redo the scree plot and the
+estimation of the factor model with the number of factors suggested by the
+scree plot.
+(c) If needed, make further changes to the factor model based on the output of
+the factor analysis. Report and motivate all the steps you have taken to arrive
+at a final factor model. How many factors are included in your final model?
+(d) Report the set of included variables, the estimated uniquenesses and factor
+loadings of your final factor model. Continue the next questions with the
+model you prefer.
+
+### Question 17
+Which names do you suggest for the factors? Motivate the names you have chosen.
+
+### Question 18
+Perform a reliability analysis of each factor.
+(a) Which criterion do you use? Which of the variables, if any, should be
+dropped?
+(b) If one or more of the variables should be dropped, redo the scree plot and
+the estimation of the factor model with the number of factors suggested by
+the scree plot. Report and motivate all the steps you have taken to arrive
+at a final factor model. Report the set of included variables, the estimated
+uniquenesses and factor loadings of your final factor model.
+
+### Question 19
+Perform a validity analysis of your factor model by splitting the sample in two ran-
+dom partitions and comparing the factor loadings. Report the estimated unique-
+nesses and factor loadings of the split samples. What do you conclude?
+
+### Question 20
+Report the results of the factor analysis in a table, including all the important
+metrics.
+
+### Question 21
+What type of variables are the estimated factors? Choose from nominal scale,
+ordinal scale, interval scale or ratio scale and explain your answer.
+
+### Question 22
+For each type of innovation (product, service, manufacturing, logistics and sup-
+port), check whether firms that have introduced such innovations load higher on 
+each of the factors than firms that have not. Support your answers by plots and
+by statistical tests. What do you conclude?
+
+### Question 23
+Is there a strong correlation between the factor scores and R&D expenditures?
+Support your answer by a plot and by a statistical test. What do you conclude?
