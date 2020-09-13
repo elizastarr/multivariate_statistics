@@ -110,51 +110,230 @@ I conclude that the data is missing at random and can be omitted from the datase
 Compute the Mahalanobis distances of the companies based on the information
 variables. Graphically present the Mahalanobis distances.
 
+```{r}
+maha_distance <- complete
+dist <- mahalanobis(complete, center=colMeans(complete), cov=cov(complete))
+maha_distance$dist <- round(dist, 2)
+
+maha_distance$outlier_maha <- 0
+maha_distance$outlier_maha[maha_distance$dist >3] <- 1
+
+upper.whisker <- boxplot(maha_distance$dist)$stats[5]
+```
+
 ### Question 10
 Can we use the rule-of-thumb that observations of which the Mahalanobis Distance
 divided q is larger 3 are outliers? Here, q is the number of variables used in the
 calculation of the Mahalanobis distance. Explain why or why not.
+
+```{r}
+# Do not use 3 as the rule of thumb because the data is not normally distributed.
+mean(maha_distance$outlier_maha)
+```
+
 
 ### Question 11
 Which companies, if any, are outliers? Describe the decision process by which you
 have or have not identified outliers. If you have identified outliers, perform the
 rest of the assignment after dropping the outliers from the analysis.
 
+```{r}
+# only 6 outliers when using the upper whisker as the threshold (54.57)
+outliers <- maha_distance[maha_distance$dist>upper.whisker,c(1:17)]
+no_outliers <- maha_distance[maha_distance$dist<=upper.whisker,c(1:17)]
+```
+
 ### Question 12
 Is a factor analysis appropriate for the questions on the information sources of
 innovations? Explain how you have checked whether factor analysis is appropriate.
 
+```{r}
+library(psych)
+library(ggplot2)
+# make heatmap
+cormat <- round(cor(no_outliers),2)
+
+melted_cormat <- reshape2::melt(cormat)
+head(melted_cormat)
+
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile()
+```
+
+
 ### Question 13
 Make a scree plot. How many factors does the scree plot suggest?
+```{r}
+# 2 factors
+EigenDecomp <- eigen(cov(no_outliers))
+EigenValues <- EigenDecomp$values
+plot(EigenValues,main="Scree Plot IAS",type="l", xlab="Number of Factors",ylab="Eigen Values")
+```
+
 
 ### Question 14
 For what purpose is a rotation of the factors in an exploratory factor analysis used?
 Should we perform a rotation in this setting? Why or why not?
 
+Rotate so that the factor loadings are easier to interpret. For example, consider 2 factor loadings F1 and F2 with variables X1 and X2 in a cluster with higher loadings for F1 and X3 and X4 with higher loadings for F2. When we perform a varimax rotation, we will create new factor loadings that give variables X1 and X2 high values for F1 and low for F2, and vice versa for variables X3 and X4.
+
 ### Question 15
-For what purpose is a rotation of the factors in an exploratory factor analysis used?
-Should we perform a rotation in this setting? Why or why not?
+Perform factor analysis using the number of factors as suggested by the scree plot.
+Clearly state how many factors you have included and whether or not you have
+used a rotation. Report the estimated uniquenesses and factor loadings.
+
+```{r}
+# Two factors are not sufficent. Chi squared null hypotheses is rejected.
+k<-2
+EFA.kfactors <- factanal(no_outliers, factors=k, rotation="none")
+EFA.kfactors$converged
+EFA.kfactors
+```
 
 ### Question 16
 Check whether all the variables should be retained in the factor analysis.
 (a) Which criteria do you use? Which of the variables, if any, should be dropped?
+
+```{r}
+# Drop variables with uniquness > 0.8
+# Consider lowering to .72 so that productinnovation is also dropped
+# I think we should drop product innovation because it is otherwise grouped into factor with the Info variables, which does not make much sense as the survey questions are on different topics.
+# Rerun analysis without these variables
+EFA.kfactors <- factanal(no_outliers, factors=2, rotation="none")
+EFA.kfactors$uniquenesses[EFA.kfactors$uniquenesses>.8]
+```
+
 (b) If one or more of the variables should be dropped, redo the scree plot and the
 estimation of the factor model with the number of factors suggested by the
 scree plot.
+
+
+```{r}
+# drop 5 variables about Innovationand redo Scree plot
+# plot indicates 2 Factors
+EigenDecomp <- eigen(cov(no_outliers[,c(1:2,8:17)]))
+EigenValues <- EigenDecomp$values
+plot(EigenValues,main="Scree Plot IAS",type="l", xlab="Number of Factors",ylab="Eigen Values")
+```
+
+```{r}
+k<-2
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=k, rotation="varimax")
+EFA.kfactors$converged
+# reject null hypothesis that 2 factors is sufficent. 
+EFA.kfactors
+```
+
 (c) If needed, make further changes to the factor model based on the output of
 the factor analysis. Report and motivate all the steps you have taken to arrive
 at a final factor model. How many factors are included in your final model?
+
+I would choose 4 factors in the final model, despite the failed chi-squared test because 4 factors gives communality for all factor loadings and only variable Info5 noew not have a high loading on one factor.
+
+```{r}
+# The Chi-squared test suggests 7 factors, but we need to make sure that makes sense when looking at the factor loadings.
+NrFactors <- 3:7
+pvals <- rep(NA,times=length(NrFactors))
+for(k in NrFactors){
+  # Estimate k-factor model:
+  Estimation <- factanal(no_outliers[,c(1:2,8:17)],factors=k,rotation="none")
+  pvals[k] <- Estimation$PVAL
+}
+
+cbind(NrFactors,pvals)
+```
+
+Each factor should have a high loading on several variables (communality) and each variable should load high on one factor loading and variable groupings should make sense.
+
+```{r}
+
+# Factors 4-7 don't have high communality
+print("k=7")
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=7, rotation="varimax")
+EFA.kfactors$loadings
+
+# Factors 4-6 don't have high communality
+print("k=6")
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=6, rotation="varimax")
+EFA.kfactors$loadings
+
+# Factor 5 doesn't have high communality
+# Info 5, 8, and 10 do not score very high on one factor
+print("k=5")
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=5, rotation="varimax")
+EFA.kfactors$loadings
+
+# Factor 4 doesn't have high communality
+# Info 5 and 9 do not score high on one factor
+# Explained variance is getting low
+print("k=4")
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=4, rotation="varimax")
+EFA.kfactors$loadings
+
+# All factors have high communality
+# All variables score high on one factor
+# Explained variance is low
+print("k=3")
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=3, rotation="varimax")
+EFA.kfactors$loadings
+```
+
 (d) Report the set of included variables, the estimated uniquenesses and factor
 loadings of your final factor model. Continue the next questions with the
 model you prefer.
 
+```{r}
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=5, rotation="varimax")
+EFA.kfactors
+```
+
+
 ### Question 17
 Which names do you suggest for the factors? Motivate the names you have chosen.
+
+5 Factors
+1. Info1, Info 3, Info4, Info5
+  - Sources within your firm or enterprise group
+  - Customers or principals
+  - Competitor or other enterprise in your industry sector
+  - Consulting firms, private R&D business, commercial laboratories
+2.  Info8, Info9, Info10
+  - Conferences, fairs, exhibitions
+  - Scientific periodicals and specialty publications
+  - Associations and boards
+3. Info6, Info7
+  - Universities, universities of applied science or other higher education institutions
+  - National or non-profit research institutions
+4. RDExp, NrEmployees
+5. Info2
+  - Suppliers of facilities, equipment, components, software and services
+
+3 Factors
+1. Info1, Info2, Info 3, Info4, Info5, Info8, Info9, Info10
+  - Suppliers of facilities, equipment, components, software and services
+  - Competitor or other enterprise in your industry sector
+  - Conferences, fairs, exhibitions
+  - Scientific periodicals and specialty publications
+  - Associations and boards
+  - Consulting firms, private R&D business, commercial laboratories
+  - Sources within your firm or enterprise group
+  - Customers or principals
+2. Info6, Info7
+  - Universities, universities of applied science or other higher education institutions
+  - National or non-profit research institutions
+3. RDExp, NrEmployees
+
+
 
 ### Question 18
 Perform a reliability analysis of each factor.
 (a) Which criterion do you use? Which of the variables, if any, should be
 dropped?
+```{r}
+CalphaTimeEscalation <- alpha(no_outliers[,c(1:2,8:17)])
+CalphaTimeEscalation
+```
+
 (b) If one or more of the variables should be dropped, redo the scree plot and
 the estimation of the factor model with the number of factors suggested by
 the scree plot. Report and motivate all the steps you have taken to arrive
