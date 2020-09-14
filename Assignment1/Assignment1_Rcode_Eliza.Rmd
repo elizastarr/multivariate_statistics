@@ -47,7 +47,6 @@ hist(log(ProdInn1$RDExp), breaks=100, col='blue')
 hist(log(ProdInn0$RDExp), breaks=100, col='red')
 ```
 ```{r}
-
 # The RDExp of companies who did innovate has a different distribution from that of those who did not innovate
 ks.test(log(ProdInn1$RDExp), log(ProdInn0$RDExp))
 ```
@@ -60,12 +59,14 @@ have introduced new or significantly improved products/goods, versus companies
 that have not? Support your answer.
 
 ```{r}
-# Manufacturing innovation is not more common for companies that innovated their products/goods, versus companies that did not
+# Manufacturing innovation is not more common for companies that innovated their products/goods, versus companies that did not.
 cat(dim(ProdInn1[ProdInn1$ManufacturingInnovation==1,])[1]/dim(ProdInn1)[1]*100,"% product=1, manuf=1\n")
 cat(dim(ProdInn1[ProdInn1$ManufacturingInnovation==0,])[1]/dim(ProdInn1)[1]*100,"% product=1, manuf=0\n")
 
 cat(dim(ProdInn0[ProdInn1$ManufacturingInnovation==1,])[1]/dim(ProdInn0)[1]*100,"% product=0, manuf=1\n")
 cat(dim(ProdInn0[ProdInn1$ManufacturingInnovation==0,])[1]/dim(ProdInn0)[1]*100,"% product=0, manuf=0\n")
+
+#chisq.test()
 ```
 
 ### Question 5
@@ -111,12 +112,16 @@ Compute the Mahalanobis distances of the companies based on the information
 variables. Graphically present the Mahalanobis distances.
 
 ```{r}
-maha_distance <- complete
+complete
+```
+
+```{r}
+maha_distance <- complete[,c(8:17)]
 dist <- mahalanobis(complete, center=colMeans(complete), cov=cov(complete))
 maha_distance$dist <- round(dist, 2)
 
 maha_distance$outlier_maha <- 0
-maha_distance$outlier_maha[maha_distance$dist >3] <- 1
+maha_distance$outlier_maha[maha_distance$dist > 3] <- 1
 
 upper.whisker <- boxplot(maha_distance$dist)$stats[5]
 ```
@@ -139,22 +144,26 @@ rest of the assignment after dropping the outliers from the analysis.
 
 ```{r}
 # only 6 outliers when using the upper whisker as the threshold (54.57)
-outliers <- maha_distance[maha_distance$dist>upper.whisker,c(1:17)]
-no_outliers <- maha_distance[maha_distance$dist<=upper.whisker,c(1:17)]
+outliers <- complete[maha_distance$dist>upper.whisker,]
+no_outliers <- complete[maha_distance$dist<=upper.whisker,]
+outliers
 ```
+
 
 ### Question 12
 Is a factor analysis appropriate for the questions on the information sources of
 innovations? Explain how you have checked whether factor analysis is appropriate.
 
+Yes, factor analysis is appropriate because there exists a positive correlation (greater than .5 even) between several of the variables.
+
 ```{r}
 library(psych)
 library(ggplot2)
 # make heatmap
-cormat <- round(cor(no_outliers),2)
+cormat <- round(cor(no_outliers[,c(8:17)]),2)
+cormat
 
 melted_cormat <- reshape2::melt(cormat)
-head(melted_cormat)
 
 ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
   geom_tile()
@@ -165,7 +174,7 @@ ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) +
 Make a scree plot. How many factors does the scree plot suggest?
 ```{r}
 # 2 factors
-EigenDecomp <- eigen(cov(no_outliers))
+EigenDecomp <- eigen(cov(no_outliers[,c(8:17)]))
 EigenValues <- EigenDecomp$values
 plot(EigenValues,main="Scree Plot IAS",type="l", xlab="Number of Factors",ylab="Eigen Values")
 ```
@@ -182,200 +191,32 @@ Perform factor analysis using the number of factors as suggested by the scree pl
 Clearly state how many factors you have included and whether or not you have
 used a rotation. Report the estimated uniquenesses and factor loadings.
 
+I am including all 10 information variables and am using rotation. The algroithm has converged. Two factors are not sufficent because Chi-squared null hypotheses is rejected.
 ```{r}
-# Two factors are not sufficent. Chi squared null hypotheses is rejected.
 k<-2
-EFA.kfactors <- factanal(no_outliers, factors=k, rotation="none")
+EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=k, rotation="varimax")
 EFA.kfactors$converged
 EFA.kfactors
 ```
+
 
 ### Question 16
 Check whether all the variables should be retained in the factor analysis.
 (a) Which criteria do you use? Which of the variables, if any, should be dropped?
 
+We will first use uniqueness as the critera for dropping variables. If we use 0.8 as the uniquness threshold, no variables are dropped. However, Info5 has a distinctly high uniquness of 0.743. To further investigate factor 5, we will look at its factor loadings when 2, 3, 4, and 5 factors are used. If Info 5 is also cross-loading or has low loadings on all factors, this could further support the decision to remove Info5.
 ```{r}
-# Drop variables with uniquness > 0.8
-# Consider lowering to .72 so that productinnovation is also dropped
-# I think we should drop product innovation because it is otherwise grouped into factor with the Info variables, which does not make much sense as the survey questions are on different topics.
-# Rerun analysis without these variables
-EFA.kfactors <- factanal(no_outliers, factors=2, rotation="none")
 EFA.kfactors$uniquenesses[EFA.kfactors$uniquenesses>.8]
 ```
 
-(b) If one or more of the variables should be dropped, redo the scree plot and the
-estimation of the factor model with the number of factors suggested by the
-scree plot.
-
-
+Let us look at the factor loadings of k=[2,6], since the Chi-squared test indicates that 2 factors are not sufficient. Indeed, Info5 does not score high on any one factor for k=[2,5]. We should remove factor 5 from the analysis.
 ```{r}
-# drop 5 variables about Innovationand redo Scree plot
-# plot indicates 2 Factors
-EigenDecomp <- eigen(cov(no_outliers[,c(1:2,8:17)]))
-EigenValues <- EigenDecomp$values
-plot(EigenValues,main="Scree Plot IAS",type="l", xlab="Number of Factors",ylab="Eigen Values")
-```
-
-```{r}
-k<-2
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=k, rotation="varimax")
-EFA.kfactors$converged
-# reject null hypothesis that 2 factors is sufficent. 
-EFA.kfactors
-```
-
-(c) If needed, make further changes to the factor model based on the output of
-the factor analysis. Report and motivate all the steps you have taken to arrive
-at a final factor model. How many factors are included in your final model?
-
-I would choose 4 factors in the final model, despite the failed chi-squared test because 4 factors gives communality for all factor loadings and only variable Info5 noew not have a high loading on one factor.
-
-```{r}
-# The Chi-squared test suggests 7 factors, but we need to make sure that makes sense when looking at the factor loadings.
-NrFactors <- 3:7
-pvals <- rep(NA,times=length(NrFactors))
-for(k in NrFactors){
-  # Estimate k-factor model:
-  Estimation <- factanal(no_outliers[,c(1:2,8:17)],factors=k,rotation="none")
-  pvals[k] <- Estimation$PVAL
-}
-
-cbind(NrFactors,pvals)
-```
-
-Each factor should have a high loading on several variables (communality) and each variable should load high on one factor loading and variable groupings should make sense.
-
-```{r}
-# Factors 4-7 don't have high communality
-print("k=7")
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=7, rotation="varimax")
-EFA.kfactors$loadings
-
-# Factors 4-6 don't have high communality
-print("k=6")
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=6, rotation="varimax")
-EFA.kfactors$loadings
-
-# Factor 5 doesn't have high communality
-# Info 5, 8, and 10 do not score very high on one factor
+# Factor 4, 5, and 6 don't have high communality
+# Info 4 does not score very high on one factor
 print("k=5")
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=5, rotation="varimax")
+EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=6, rotation="varimax")
 EFA.kfactors$loadings
 
-# Factor 4 doesn't have high communality
-# Info 5 and 9 do not score high on one factor
-# Explained variance is getting low
-print("k=4")
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=4, rotation="varimax")
-EFA.kfactors$loadings
-
-# All factors have high communality
-# All variables score high on one factor
-# Explained variance is low
-print("k=3")
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=3, rotation="varimax")
-EFA.kfactors$loadings
-```
-
-(d) Report the set of included variables, the estimated uniquenesses and factor
-loadings of your final factor model. Continue the next questions with the
-model you prefer.
-
-```{r}
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=3, rotation="varimax")
-EFA.kfactors
-```
-
-
-### Question 17
-Which names do you suggest for the factors? Motivate the names you have chosen.
-```{r}
-# f1 <- c(8,10,11,12)
-# f2 <- c(15,16,17)
-# f3 <- c(13,14)
-# f4 <- c(1,2)
-# f5 <- 9
-
-f1 <- c(8,9,10,11,12,15,16,17)
-f2 <- c(13, 14)
-f3 <-c(1,2)
-```
-
-*Ignore 5 factors*
-5 Factors
-1. Info1, Info 3, Info4, Info5
-  - Sources within your firm or enterprise group
-  - Customers or principals
-  - Competitor or other enterprise in your industry sector
-  - Consulting firms, private R&D business, commercial laboratories
-2.  Info8, Info9, Info10
-  - Conferences, fairs, exhibitions
-  - Scientific periodicals and specialty publications
-  - Associations and boards
-3. Info6, Info7
-  - Universities, universities of applied science or other higher education institutions
-  - National or non-profit research institutions
-4. RDExp, NrEmployees
-5. Info2
-  - Suppliers of facilities, equipment, components, software and services
-
-3 Factors
-1. Info1, Info2, Info 3, Info4, Info5, Info8, Info9, Info10
-  - Suppliers of facilities, equipment, components, software and services
-  - Competitor or other enterprise in your industry sector
-  - Conferences, fairs, exhibitions
-  - Scientific periodicals and specialty publications
-  - Associations and boards
-  - Consulting firms, private R&D business, commercial laboratories
-  - Sources within your firm or enterprise group
-  - Customers or principals
-2. Info6, Info7
-  - Universities, universities of applied science or other higher education institutions
-  - National or non-profit research institutions
-3. RDExp, NrEmployees
-
-
-
-### Question 18
-Perform a reliability analysis of each factor.
-(a) Which criterion do you use? Which of the variables, if any, should be
-dropped?
-```{r}
-# closer to 1 the better
-# No variables should be dropped from f1, f2
-# f3's alpha is really low. Drop RDExp and NrEmployees
-
-f1_alpha <- psych::alpha(no_outliers[,f1])
-f2_alpha <- psych::alpha(no_outliers[,f2])
-f3_alpha <- psych::alpha(no_outliers[,f3])
-f3_alpha
-
-```
-
-(b) If one or more of the variables should be dropped, redo the scree plot and
-the estimation of the factor model with the number of factors suggested by
-the scree plot. Report and motivate all the steps you have taken to arrive
-at a final factor model. Report the set of included variables, the estimated
-uniquenesses and factor loadings of your final factor model.
-
-```{r}
-EigenDecomp <- eigen(cov(no_outliers[,c(8:17)]))
-EigenValues <- EigenDecomp$values
-plot(EigenValues,main="Scree Plot IAS",type="l", xlab="Number of Factors",ylab="Eigen Values")
-```
-```{r}
-# all chi-square tests fail
-NrFactors <- 2:5
-pvals <- rep(NA,times=length(NrFactors))
-for(k in NrFactors){
-  # Estimate k-factor model:
-  Estimation <- factanal(no_outliers[,c(8:17)],factors=k,rotation="none")
-  pvals[k] <- Estimation$PVAL
-}
-
-cbind(NrFactors,pvals)
-```
-```{r}
 # Factor 3,4, and 5 don't have high communality
 # Info 5, 9 do not score very high on one factor
 print("k=5")
@@ -403,29 +244,152 @@ print("k=2")
 EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=2, rotation="varimax")
 EFA.kfactors$loadings
 ```
+
+
+(b) If one or more of the variables should be dropped, redo the scree plot and the
+estimation of the factor model with the number of factors suggested by the
+scree plot.
+
 ```{r}
-EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=3, rotation="varimax")
+# Plot still indicates 2 Factors if we were to remove Info5.
+EigenDecomp <- eigen(cov(no_outliers[,c(8:11,13:17)]))
+EigenValues <- EigenDecomp$values
+plot(EigenValues,main="Scree Plot IAS",type="l", xlab="Number of Factors",ylab="Eigen Values")
+```
+
+The test states that 2 factors is still not sufficent.
+```{r}
+EFA.kfactors <- factanal(no_outliers[,c(8:11,13:17)], factors=2, rotation="varimax")
 EFA.kfactors
 ```
-1. Info1, Info2, Info3, Info4, Info5 - InfoIndustrySector
-  - Sources within your firm or enterprise group
+
+
+(c) If needed, make further changes to the factor model based on the output of
+the factor analysis. Report and motivate all the steps you have taken to arrive
+at a final factor model. How many factors are included in your final model?
+
+I would choose 3 factors in the final model, despite the failed chi-squared test because 3 factors gives communality for all factor loadings, only variable Info8 cross-loads, and the total explained variance is higher than that of a 2 factor model, and the grouping of variables is logical.
+
+```{r}
+# Before dropping Info5, none of the chi-squared tests failed to reject the null hypothesis.
+# After dropping Info5, the Chi-squared test suggests that 5 factors are sufficent, but we need to make sure that makes sense when looking at the factor loadings.
+NrFactors <- 1:5
+pvals <- rep(NA,times=length(NrFactors))
+for(k in NrFactors){
+  # Estimate k-factor model:
+  Estimation <- factanal(no_outliers[,c(8:11,13:17)],factors=k,rotation="varimax")
+  pvals[k] <- Estimation$PVAL
+}
+
+cbind(NrFactors,pvals)
+```
+
+Each factor should have a high loading on several variables (communality) and each variable should load high on one factor loading and variable groupings should make sense.
+
+```{r}
+
+# Factor 5 and 4 don't have high communality
+print("k=5")
+EFA.kfactors <- factanal(no_outliers[,c(8:11,13:17)], factors=5, rotation="varimax")
+EFA.kfactors$loadings
+
+# Factor 4 and 3 don't have high communality
+print("k=4")
+EFA.kfactors <- factanal(no_outliers[,c(8:11,13:17)], factors=4, rotation="varimax")
+EFA.kfactors$loadings
+
+# All factors have high communality
+# Info 8 cross-loads
+# Explained variance is low
+print("k=3")
+EFA.kfactors <- factanal(no_outliers[,c(8:11,13:17)], factors=3, rotation="varimax")
+EFA.kfactors$loadings
+
+# Both factors have high communality
+print("k=2")
+EFA.kfactors <- factanal(no_outliers[,c(8:11,13:17)], factors=2, rotation="varimax")
+EFA.kfactors$loadings
+```
+
+(d) Report the set of included variables, the estimated uniquenesses and factor
+loadings of your final factor model. Continue the next questions with the
+model you prefer.
+
+```{r}
+EFA.kfactors <- factanal(no_outliers[,c(8:11,13:17)], factors=3, rotation="varimax")
+EFA.kfactors
+```
+
+
+### Question 17
+Which names do you suggest for the factors? Motivate the names you have chosen.
+```{r}
+f1 <- c(8,9,10,11)
+f2 <- c(13, 14)
+f3 <- c(15,16,17)
+```
+
+3 Factors
+1. Info1, Info2, Info 3, Info4: Industry
   - Suppliers of facilities, equipment, components, software and services
+  - Sources within your firm or enterprise group
   - Customers or principals
   - Competitor or other enterprise in your industry sector
-  - Consulting firms, private R&D business, commercial laboratories
-2. Info6, Info7 - InfoResearchSector
+2. Info6, Info7: Research
   - Universities, universities of applied science or other higher education institutions
   - National or non-profit research institutions
-3. Info8, Info9, Info10 - InfoOther
+3. Info8, Info9, Info10: Other
   - Conferences, fairs, exhibitions
   - Scientific periodicals and specialty publications
   - Associations and boards
 
+### Question 18
+Perform a reliability analysis of each factor.
+(a) Which criterion do you use? Which of the variables, if any, should be
+dropped?
+
+Using Cronbach’s alpha, we decide to keep all variables in all factors.
+```{r}
+# The closer alpha is to 1, the better
+# No variables should be dropped from f1, f2, or f3
+
+f1_alpha <- psych::alpha(no_outliers[,f1])
+f2_alpha <- psych::alpha(no_outliers[,f2])
+f3_alpha <- psych::alpha(no_outliers[,f3])
+```
+
+(b) If one or more of the variables should be dropped, redo the scree plot and
+the estimation of the factor model with the number of factors suggested by
+the scree plot. Report and motivate all the steps you have taken to arrive
+at a final factor model. Report the set of included variables, the estimated
+uniquenesses and factor loadings of your final factor model.
+
+```{r}
+EFA.kfactors <- factanal(no_outliers[,c(8:11,13:17)], factors=3, rotation="varimax")
+EFA.kfactors$uniquenesses
+EFA.kfactors$loadings
+```
+
+3 Factors
+1. Info1, Info2, Info 3, Info4: Industry
+  - Suppliers of facilities, equipment, components, software and services
+  - Sources within your firm or enterprise group
+  - Customers or principals
+  - Competitor or other enterprise in your industry sector
+2. Info6, Info7: Research
+  - Universities, universities of applied science or other higher education institutions
+  - National or non-profit research institutions
+3. Info8, Info9, Info10: Other
+  - Conferences, fairs, exhibitions
+  - Scientific periodicals and specialty publications
+  - Associations and boards
 
 ### Question 19
 Perform a validity analysis of your factor model by splitting the sample in two ran-
 dom partitions and comparing the factor loadings. Report the estimated unique-
 nesses and factor loadings of the split samples. What do you conclude?
+
+The factor loadings and uniqueness of variables are very similar between partitions 1 and 2. The variable groupings also remain the same between the partition.
 ```{r}
 Data <- data.frame(no_outliers)
 # Identify the number of observations in Data:
@@ -438,27 +402,24 @@ no_outliers.Partition2 <- Data[-shuffle.index,]
 ```
 
 ```{r}
-# This test shows that 5 factors is too many. Info 2, 5 and 8 move groupings
-EFA.kfactors.1 <- factanal(no_outliers.Partition1[,c(8:17)], factors=3, rotation="varimax")
-EFA.kfactors.2 <- factanal(no_outliers.Partition2[,c(8:17)], factors=3, rotation="varimax")
+EFA.kfactors.1 <- factanal(no_outliers.Partition1[,c(8:11,13:17)], factors=3, rotation="varimax")
+EFA.kfactors.2 <- factanal(no_outliers.Partition2[,c(8:11,13:17)], factors=3, rotation="varimax")
 EFA.kfactors.1
 EFA.kfactors.2
 ```
-
 
 ### Question 20
 Report the results of the factor analysis in a table, including all the important
 metrics.
 
 ```{r}
-EFA.3factors <- factanal(no_outliers[,c(8:17)], factors=3, rotation="varimax", scores="regression")
+EFA.3factors <- factanal(no_outliers[,c(8:11,13:17)], factors=3, rotation="varimax", scores="regression")
 
 FactorScores <- data.frame(EFA.3factors$scores)
 final.data <- no_outliers[,c(1:7)]
 final.data$InfoIndustrySector <- FactorScores$Factor1
 final.data$InfoResearchSector <- FactorScores$Factor2
 final.data$InfoOther <- FactorScores$Factor3
-
 ```
 
 
@@ -466,7 +427,7 @@ final.data$InfoOther <- FactorScores$Factor3
 What type of variables are the estimated factors? Choose from nominal scale,
 ordinal scale, interval scale or ratio scale and explain your answer.
 
-The Info varialbes are from the ordinal scale because the interpretation of each option can vary from person to person meaning that the difference between the variables is relative. However, the answer options do have a relative order.
+The Info variables are from the ordinal scale because the interpretation of each option can vary from person to person meaning that the difference between the variables is relative. However, the answer options do have a relative order.
 
 ### Question 22
 For each type of innovation (product, service, manufacturing, logistics and sup-
@@ -474,16 +435,15 @@ port), check whether firms that have introduced such innovations load higher on
 each of the factors than firms that have not. Support your answers by plots and
 by statistical tests. What do you conclude?
 
-The factors are not normally distributed. There is a significant difference between all Info variables and Innovation variables except for InfoResearchSector and LogisticsInnovation.
 
-
+There is a significant difference between all Info variables and Innovation variables except for InfoResearchSector and LogisticsInnovation.
 ```{r}
 
 for(info in c("InfoIndustrySector","InfoResearchSector","InfoOther")) {
   for(innovation in c("ProductInnovation","ServiceInnovation","ManufacturingInnovation","LogisticsInnovation")) {
     #hist(final.data[,info], breaks=100, col='red')
     boxplot(final.data[,info] ~ final.data[,innovation])
-    cat(info, innovation, "p-value",t.test(final.data[,info] ~ final.data[,innovation])$p.value,"\n")
+    cat(info, innovation, "p-value", t.test(final.data[,info] ~ final.data[,innovation])$p.value,"\n")
   }
 }
 ```
@@ -493,26 +453,27 @@ Is there a strong correlation between the factor scores and R&D expenditures?
 Support your answer by a plot and by a statistical test. What do you conclude?
 
 Plotting the log of log-transformed RDExp against the factor scores does not suggest a clear correlation.
-The Kendall's Tau test (non-parametric) rejects the null hypothesis of independence for all factors. However, the Kendall's tau values are not large so correlation is not strong.
-
 ```{r}
-# make heatmap
-cormat <- round(cor(final.data[,c(1,8:10)]),2)
-cormat
 plot(log(final.data$RDExp), final.data$InfoIndustrySector)
 plot(log(final.data$RDExp), final.data$InfoResearchSector)
 plot(log(final.data$RDExp), final.data$InfoOther)
+```
 
-# 1 is perfect relationship
+The Shapiro-Wilk tests below show that the factors are not normally distributed. So we must use a non-parametric test like Kendall's Tau to test for correlation.
+```{r}
+# Factors are not normally distributed
+shapiro.test(final.data$InfoIndustrySector)
+shapiro.test(final.data$InfoResearchSector)
+shapiro.test(final.data$InfoOther)
+```
+
+The Kendall's Tau test (non-parametric) rejects the null hypothesis of independence for all factors. However, the Kendall's tau values are not large so the relationships are not strong.
+
+```{r}
+# tau = 1 is perfect relationship
 # The null hypothesis is that there is no association between the variables under study.
 cor.test(final.data$RDExp, final.data$InfoIndustrySector,  method="kendall")
 cor.test(final.data$RDExp, final.data$InfoResearchSector,  method="kendall")
 cor.test(final.data$RDExp, final.data$InfoOther,  method="kendall")
-```
-```{r}
-# Info variables not normally distributed
-shapiro.test(final.data$InfoIndustrySector)
-shapiro.test(final.data$InfoResearchSector)
-shapiro.test(final.data$InfoOther)
 ```
 
