@@ -246,7 +246,6 @@ cbind(NrFactors,pvals)
 Each factor should have a high loading on several variables (communality) and each variable should load high on one factor loading and variable groupings should make sense.
 
 ```{r}
-
 # Factors 4-7 don't have high communality
 print("k=7")
 EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=7, rotation="varimax")
@@ -283,14 +282,26 @@ loadings of your final factor model. Continue the next questions with the
 model you prefer.
 
 ```{r}
-EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=5, rotation="varimax")
+EFA.kfactors <- factanal(no_outliers[,c(1:2,8:17)], factors=3, rotation="varimax")
 EFA.kfactors
 ```
 
 
 ### Question 17
 Which names do you suggest for the factors? Motivate the names you have chosen.
+```{r}
+# f1 <- c(8,10,11,12)
+# f2 <- c(15,16,17)
+# f3 <- c(13,14)
+# f4 <- c(1,2)
+# f5 <- 9
 
+f1 <- c(8,9,10,11,12,15,16,17)
+f2 <- c(13, 14)
+f3 <-c(1,2)
+```
+
+*Ignore 5 factors*
 5 Factors
 1. Info1, Info 3, Info4, Info5
   - Sources within your firm or enterprise group
@@ -330,8 +341,15 @@ Perform a reliability analysis of each factor.
 (a) Which criterion do you use? Which of the variables, if any, should be
 dropped?
 ```{r}
-CalphaTimeEscalation <- alpha(no_outliers[,c(1:2,8:17)])
-CalphaTimeEscalation
+# closer to 1 the better
+# No variables should be dropped from f1, f2
+# f3's alpha is really low. Drop RDExp and NrEmployees
+
+f1_alpha <- psych::alpha(no_outliers[,f1])
+f2_alpha <- psych::alpha(no_outliers[,f2])
+f3_alpha <- psych::alpha(no_outliers[,f3])
+f3_alpha
+
 ```
 
 (b) If one or more of the variables should be dropped, redo the scree plot and
@@ -340,18 +358,115 @@ the scree plot. Report and motivate all the steps you have taken to arrive
 at a final factor model. Report the set of included variables, the estimated
 uniquenesses and factor loadings of your final factor model.
 
+```{r}
+EigenDecomp <- eigen(cov(no_outliers[,c(8:17)]))
+EigenValues <- EigenDecomp$values
+plot(EigenValues,main="Scree Plot IAS",type="l", xlab="Number of Factors",ylab="Eigen Values")
+```
+```{r}
+# all chi-square tests fail
+NrFactors <- 2:5
+pvals <- rep(NA,times=length(NrFactors))
+for(k in NrFactors){
+  # Estimate k-factor model:
+  Estimation <- factanal(no_outliers[,c(8:17)],factors=k,rotation="none")
+  pvals[k] <- Estimation$PVAL
+}
+
+cbind(NrFactors,pvals)
+```
+```{r}
+# Factor 3,4, and 5 don't have high communality
+# Info 5, 9 do not score very high on one factor
+print("k=5")
+EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=5, rotation="varimax")
+EFA.kfactors$loadings
+
+# Factor 4 doesn't have high communality
+# Info 5 do not score high on one factor
+# Explained variance is getting low
+print("k=4")
+EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=4, rotation="varimax")
+EFA.kfactors$loadings
+
+# All factors have high communality
+# Info 5 and 8 do not score high on one factor
+# Explained variance is low
+print("k=3")
+EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=3, rotation="varimax")
+EFA.kfactors$loadings
+
+# All factors have high communality
+# Info 5 do not score high on one factor
+# Explained variance is low
+print("k=2")
+EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=2, rotation="varimax")
+EFA.kfactors$loadings
+```
+```{r}
+EFA.kfactors <- factanal(no_outliers[,c(8:17)], factors=3, rotation="varimax")
+EFA.kfactors
+```
+1. Info1, Info2, Info3, Info4, Info5 - InfoIndustrySector
+  - Sources within your firm or enterprise group
+  - Suppliers of facilities, equipment, components, software and services
+  - Customers or principals
+  - Competitor or other enterprise in your industry sector
+  - Consulting firms, private R&D business, commercial laboratories
+2. Info6, Info7 - InfoResearchSector
+  - Universities, universities of applied science or other higher education institutions
+  - National or non-profit research institutions
+3. Info8, Info9, Info10 - InfoOther
+  - Conferences, fairs, exhibitions
+  - Scientific periodicals and specialty publications
+  - Associations and boards
+
+
 ### Question 19
 Perform a validity analysis of your factor model by splitting the sample in two ran-
 dom partitions and comparing the factor loadings. Report the estimated unique-
 nesses and factor loadings of the split samples. What do you conclude?
+```{r}
+Data <- data.frame(no_outliers)
+# Identify the number of observations in Data:
+N <- dim(Data)[1]
+# Create a random index vector:
+shuffle.index <- sample(1:N,size=N/2)
+# Shuffle the data:
+no_outliers.Partition1 <- Data[shuffle.index,]
+no_outliers.Partition2 <- Data[-shuffle.index,]
+```
+
+```{r}
+# This test shows that 5 factors is too many. Info 2, 5 and 8 move groupings
+EFA.kfactors.1 <- factanal(no_outliers.Partition1[,c(8:17)], factors=3, rotation="varimax")
+EFA.kfactors.2 <- factanal(no_outliers.Partition2[,c(8:17)], factors=3, rotation="varimax")
+EFA.kfactors.1
+EFA.kfactors.2
+```
+
 
 ### Question 20
 Report the results of the factor analysis in a table, including all the important
 metrics.
 
+```{r}
+EFA.3factors <- factanal(no_outliers[,c(8:17)], factors=3, rotation="varimax", scores="regression")
+
+FactorScores <- data.frame(EFA.3factors$scores)
+final.data <- no_outliers[,c(1:7)]
+final.data$InfoIndustrySector <- FactorScores$Factor1
+final.data$InfoResearchSector <- FactorScores$Factor2
+final.data$InfoOther <- FactorScores$Factor3
+
+```
+
+
 ### Question 21
 What type of variables are the estimated factors? Choose from nominal scale,
 ordinal scale, interval scale or ratio scale and explain your answer.
+
+The Info varialbes are from the ordinal scale because the interpretation of each option can vary from person to person meaning that the difference between the variables is relative. However, the answer options do have a relative order.
 
 ### Question 22
 For each type of innovation (product, service, manufacturing, logistics and sup-
@@ -359,6 +474,45 @@ port), check whether firms that have introduced such innovations load higher on
 each of the factors than firms that have not. Support your answers by plots and
 by statistical tests. What do you conclude?
 
+The factors are not normally distributed. There is a significant difference between all Info variables and Innovation variables except for InfoResearchSector and LogisticsInnovation.
+
+
+```{r}
+
+for(info in c("InfoIndustrySector","InfoResearchSector","InfoOther")) {
+  for(innovation in c("ProductInnovation","ServiceInnovation","ManufacturingInnovation","LogisticsInnovation")) {
+    #hist(final.data[,info], breaks=100, col='red')
+    boxplot(final.data[,info] ~ final.data[,innovation])
+    cat(info, innovation, "p-value",t.test(final.data[,info] ~ final.data[,innovation])$p.value,"\n")
+  }
+}
+```
+
 ### Question 23
 Is there a strong correlation between the factor scores and R&D expenditures?
 Support your answer by a plot and by a statistical test. What do you conclude?
+
+Plotting the log of log-transformed RDExp against the factor scores does not suggest a clear correlation.
+The Kendall's Tau test (non-parametric) rejects the null hypothesis of independence for all factors. However, the Kendall's tau values are not large so correlation is not strong.
+
+```{r}
+# make heatmap
+cormat <- round(cor(final.data[,c(1,8:10)]),2)
+cormat
+plot(log(final.data$RDExp), final.data$InfoIndustrySector)
+plot(log(final.data$RDExp), final.data$InfoResearchSector)
+plot(log(final.data$RDExp), final.data$InfoOther)
+
+# 1 is perfect relationship
+# The null hypothesis is that there is no association between the variables under study.
+cor.test(final.data$RDExp, final.data$InfoIndustrySector,  method="kendall")
+cor.test(final.data$RDExp, final.data$InfoResearchSector,  method="kendall")
+cor.test(final.data$RDExp, final.data$InfoOther,  method="kendall")
+```
+```{r}
+# Info variables not normally distributed
+shapiro.test(final.data$InfoIndustrySector)
+shapiro.test(final.data$InfoResearchSector)
+shapiro.test(final.data$InfoOther)
+```
+
